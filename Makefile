@@ -6,4 +6,4 @@ client: client_src/client.go
 	go build -tags kcp -o client client_src/client.go
 
 clean:
-	rm -fr server client_src/client
+	rm -fr server client
