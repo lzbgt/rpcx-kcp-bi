@@ -48,8 +48,10 @@ func main() {
 			}
 		} else {
 			fmt.Println("nil conn")
-			time.Sleep(1 * time.Second)
 		}
+
+		time.Sleep(1 * time.Second)
+
 	}
 }
 
