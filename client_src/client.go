@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"time"
 
@@ -26,6 +25,19 @@ const cryptSalt = "rpcx-salt"
 
 var clientConn net.Conn
 
+func newClient(d client.ServiceDiscovery, option client.Option, ch chan *protocol.Message) client.XClient {
+	fmt.Println("try to get client to server")
+	xclient := client.NewBidirectionalXClient("Arith", client.Failfast, client.RoundRobin, d, option, ch)
+	fmt.Println("got client to server")
+
+	// plugin
+	cs := &ConfigUDPSession{}
+	pc := client.NewPluginContainer()
+	pc.Add(cs)
+	xclient.SetPlugins(pc)
+	return xclient
+}
+
 func main() {
 	flag.Parse()
 
@@ -42,31 +54,20 @@ func main() {
 	d := client.NewPeer2PeerDiscovery("kcp@"+*addr, "")
 	//xclient := client.NewXClient("Arith", client.Failtry, client.RoundRobin, d, option)
 	ch := make(chan *protocol.Message)
-	xclient := client.NewBidirectionalXClient("Arith", client.Failfast, client.RoundRobin, d, option, ch)
-
-	// plugin
-	cs := &ConfigUDPSession{}
-	pc := client.NewPluginContainer()
-	pc.Add(cs)
-	xclient.SetPlugins(pc)
-
+	xclient := newClient(d, option, ch)
 	args := &example.Args{
 		A: 10,
 		B: 20,
 	}
 
-	start := time.Now()
-	for i := 0; i < 1; i++ {
-		reply := &example.Reply{}
-		err := xclient.Call(context.Background(), "Mul", args, reply)
-		if err != nil {
-			log.Fatalf("failed to call: %v", err)
-		}
-		//log.Printf("%d * %d = %d", args.A, args.B, reply.C)
+	fmt.Println("block sending to server")
+	reply := &example.Reply{}
+	err := xclient.Call(context.Background(), "Mul", args, reply)
+	if err != nil {
+		fmt.Printf("block sent failed: %v\n", err)
+	} else {
+		fmt.Printf("block sent success")
 	}
-	dur := time.Since(start)
-	qps := 1 * 1000 / int(dur/time.Millisecond)
-	fmt.Printf("qps: %d call/s", qps)
 
 	go func() {
 		for {
@@ -77,7 +78,7 @@ func main() {
 			fmt.Println("sent beat")
 			if err != nil {
 				fmt.Printf("failed from server: %v\n", err)
-				xclient = client.NewBidirectionalXClient("Arith", client.Failfast, client.RoundRobin, d, option, ch)
+				xclient = newClient(d, option, ch)
 			} else {
 				fmt.Println("go beat")
 			}
